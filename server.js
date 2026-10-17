@@ -15,7 +15,12 @@ app.get("/", (_, res) => res.json({
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] },
-  transports: ["websocket", "polling"]
+  transports: ["websocket", "polling"],
+  // Allow mobile browsers a little more time during temporary network stalls
+  // before Socket.IO declares the connection dead.
+  pingInterval: 25000,
+  pingTimeout: 60000,
+  connectTimeout: 45000
 });
 
 const rooms = new Map();
@@ -79,7 +84,7 @@ function leaveRoom(socket) {
 }
 
 io.on("connection", socket => {
-  console.log("CONNECTED:", socket.id);
+  console.log("CONNECTED:", socket.id, "transport:", socket.conn.transport.name);
 
   socket.on("join-room", rawRoomId => {
     const roomId = cleanRoomId(
@@ -200,8 +205,8 @@ io.on("connection", socket => {
   });
 
   socket.on("leave-room", () => leaveRoom(socket));
-  socket.on("disconnect", () => {
-    console.log("DISCONNECTED:", socket.id);
+  socket.on("disconnect", reason => {
+    console.log("DISCONNECTED:", socket.id, "reason:", reason);
     leaveRoom(socket);
   });
 });
